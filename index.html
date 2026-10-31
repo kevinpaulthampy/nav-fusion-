@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1b33">
+<title>VJCET Campus Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0f1b33;--ink2:#4a5568;--line:#e3e7ee;--bg:#eceef1;--card:#fff;--you:#2563eb;--route:#e11d48;--go:#0b7a5a;--sh:0 6px 24px rgba(15,27,51,.18)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{font:500 15px/1.35 Manrope,system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+button,input{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible{outline:3px solid var(--you);outline-offset:2px}
+#app{position:fixed;inset:0}
+#map{position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:var(--bg)}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--sh)}
+.btn{min-height:48px;padding:0 18px;border-radius:14px;font-weight:700;background:#fff;border:1.5px solid var(--line)}
+.btn.main{background:var(--you);border-color:var(--you);color:#fff}
+.btn.stop{background:#fff;color:#b42318;border-color:#f3c1bc}
+.btn.dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* search card */
+#top{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);padding:6px;display:flex;align-items:center;gap:4px}
+#top .fields{flex:1;min-width:0}
+.field{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:0 10px;border-radius:12px;text-align:left}
+.field:active{background:#f2f4f8}
+.field .pin{flex:none;width:12px;height:12px;border-radius:50%;border:3px solid var(--go)}
+.field.to .pin{border-color:var(--route);background:var(--route)}
+.field span.t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.field span.ph{color:#7b8496;font-weight:500}
+.sep{height:1px;background:var(--line);margin:0 10px 0 34px}
+#swap{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center}
+#swap:active{background:#f2f4f8}
+
+/* side controls */
+#side{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 150px);display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.seg{display:flex;flex-direction:column;padding:4px;gap:2px}
+.seg button{width:44px;height:44px;border-radius:12px;font-weight:800;font-size:16px;color:var(--ink2)}
+.seg button.on{background:var(--ink);color:#fff}
+#recenter{display:none;width:48px;height:48px;border-radius:50%;place-items:center}
+
+/* route sheet */
+#sheet{position:absolute;left:0;right:0;bottom:0;padding:14px 16px calc(env(safe-area-inset-bottom) + 14px);border-radius:22px 22px 0 0;max-height:62dvh;display:none;flex-direction:column}
+#sheet .big{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1}
+#sheet .big small{font-size:16px;font-weight:700;margin-left:4px;color:var(--ink2);letter-spacing:0}
+#sheet .note{color:var(--ink2);font-size:13px;margin-top:6px}
+#steps{overflow:auto;margin:10px -4px 0;padding:0 4px}
+#steps .st{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+#steps .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;margin-top:1px}
+#steps small{color:var(--ink2)}
+#sheet .acts{display:flex;gap:10px;margin-top:12px}
+#sheet .acts .main{flex:1}
+#dirs{margin-top:10px;text-align:left;color:var(--you);font-weight:700;min-height:36px}
+.hint{color:var(--ink2);font-size:13px;margin-top:8px}
+
+/* live banner and bar */
+#nav{position:absolute;left:0;right:0;top:0;display:none;padding:calc(env(safe-area-inset-top) + 12px) 16px 16px;background:var(--ink);color:#fff;border-radius:0 0 22px 22px;box-shadow:var(--sh)}
+#nav .row{display:flex;align-items:center;gap:16px}
+#nav svg{flex:none;width:64px;height:64px}
+#nav .h{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+#nav .s{font-size:17px;font-weight:700;color:#b7c4e4;margin-top:2px}
+#nav .rest{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.18);font-size:14px;color:#b7c4e4;display:flex;justify-content:space-between}
+#bar{position:absolute;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);display:none;flex-direction:column;gap:10px}
+#bar .r{display:flex;gap:10px}
+#bar .r .btn{flex:1}
+#bar .r .btn.i{flex:none;width:52px;padding:0;display:grid;place-items:center}
+#stairs{display:none;min-height:56px;font-size:17px}
+#off{position:absolute;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 150px);display:none;padding:14px}
+#off b{display:block;margin-bottom:10px}
+#off .r{display:flex;gap:10px}#off .r .btn{flex:1}
+
+/* overlays */
+#search{position:absolute;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:20}
+#search .hd{display:flex;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top) + 10px) 10px 10px;background:#fff;border-bottom:1px solid var(--line)}
+#search .hd button{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none}
+#q{flex:1;min-width:0;height:48px;border:1.5px solid var(--line);border-radius:12px;padding:0 14px;font-size:16px;background:#f7f8fa}
+#chips{display:flex;gap:8px;padding:10px;flex-wrap:wrap}
+#chips:empty{display:none}
+#chips button{min-height:40px;padding:0 14px;border-radius:20px;background:#fff;border:1.5px solid var(--line);font-weight:700}
+#chips button[disabled]{opacity:.45}
+#res{flex:1;overflow:auto;background:#fff}
+#res button{display:block;width:100%;text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);min-height:56px}
+#res button:active{background:#f2f4f8}
+#res b{display:block}
+#res small{color:var(--ink2)}
+#res .empty{padding:24px 16px;color:var(--ink2)}
+#tools{position:absolute;left:0;right:0;bottom:0;z-index:15;display:none;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);border-radius:22px 22px 0 0}
+#tools p{margin:6px 0 12px;color:var(--ink2);font-size:13px;line-height:1.5}
+#tools .r{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+#tools .r .btn{flex:1;min-width:130px}
+#tools label{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:700}
+#tools input[type=range]{flex:1}
+#toast{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 24px);max-width:calc(100% - 32px);background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;font-weight:700;display:none;z-index:30;text-align:center}
+
+#hint0{position:absolute;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 14px);padding:14px 16px;color:var(--ink2);font-size:14px;display:none}
+#app[data-mode=browse] #hint0{display:block}
+#app[data-mode=preview] #sheet{display:flex}
+#app[data-mode=live] #top,#app[data-mode=live] #sheet{display:none}
+#app[data-mode=live] #nav{display:block}
+#app[data-mode=live] #bar{display:flex}
+#app[data-mode=live] #side{top:calc(env(safe-area-inset-top) + 190px)}
+@media(prefers-reduced-motion:no-preference){#sheet,#nav{animation:up .25s ease-out}@keyframes up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<div id="app" data-mode="browse">
+<svg id="map" preserveAspectRatio="xMidYMid slice"><image id="img"/><g id="ov"></g></svg>
+
+<div id="top" class="card">
+ <div class="fields">
+  <button class="field from" id="fromBtn"><span class="pin"></span><span class="t ph" id="fromTxt">Start: where are you?</span></button>
+  <div class="sep"></div>
+  <button class="field to" id="toBtn"><span class="pin"></span><span class="t ph" id="toTxt">Destination</span></button>
+ </div>
+ <button id="swap" aria-label="Swap start and destination"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"/></svg></button>
+</div>
+
+<div id="side">
+ <div class="card seg" id="blocks" role="group" aria-label="Block"></div>
+ <div class="card seg" id="floors" role="group" aria-label="Floor"></div>
+ <button id="recenter" class="card" aria-label="Centre on me"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
+</div>
+
+<div id="hint0" class="card">Pick a start and a destination above. Pinch to zoom the map, and use the buttons on the right to change block or floor.</div>
+
+<div id="sheet" class="card">
+ <div><div class="big" id="total"></div><div class="note" id="est"></div></div>
+ <button id="dirs">Show directions</button>
+ <div id="steps" style="display:none"></div>
+ <div class="acts"><button class="btn" id="clr">Clear</button><button class="btn main" id="go">Start walking</button></div>
+ <div class="hint">Stand at the door of the start room, hold your phone upright and walk along the corridor.</div>
+</div>
+
+<div id="nav">
+ <div class="row"><div id="icon"></div><div><div class="h" id="nh"></div><div class="s" id="ns"></div></div></div>
+ <div class="rest"><span id="nr"></span><span id="nq"></span></div>
+</div>
+
+<div id="off" class="card"><b>You may be off route.</b><div class="r"><button class="btn main" id="offFix">Choose where I am</button><button class="btn" id="offOk">I'm on route</button></div></div>
+
+<div id="bar">
+ <button class="btn main" id="stairs"></button>
+ <div class="r">
+  <button class="btn i card" id="toolsBtn" aria-label="Sensor tools"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+  <button class="btn card" id="where">Where am I?</button>
+  <button class="btn stop card" id="stop">Stop</button>
+ </div>
+</div>
+
+<div id="tools" class="card">
+ <b>Sensor tools</b>
+ <p id="stats"></p>
+ <label>Step sensitivity <input type="range" id="lth" min="0.4" max="3" step="0.1" value="1.2"><span id="lthv">1.2</span></label>
+ <div class="r"><button class="btn" id="lset">Set direction</button><button class="btn" id="lstep">Add a step</button><button class="btn" id="llog">Download log</button><button class="btn dark" id="tclose">Close</button></div>
+</div>
+
+<div id="search">
+ <div class="hd"><button id="sback" aria-label="Back"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><input id="q" type="search" placeholder="Room number, name or place" autocomplete="off" enterkeyhint="search"></div>
+ <div id="chips"></div>
+ <div id="res"></div>
+</div>
+<div id="toast" role="status"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const app=$('app'),svg=$('map'),img=$('img'),ov=$('ov');
+const rad=Math.PI/180,ad=(a,b)=>((a-b)%360+540)%360-180,nrm=a=>((a%360)+360)%360;
+let G,N={},cur,vb=[0,0,1,1],route=null,P=null,from=null,to=null,places=[],L={on:false},searchCb=null;
+const fl=id=>G.floors.find(f=>f.id===id);
+const flab=id=>{const f=fl(id);return f.block+' Block, '+f.label.toLowerCase()};
+const FS={G:'G',RG:'R','1':'1','2':'2','3':'3'};
+
+const ICON={
+ straight:'<path d="M24 41V9M12 21L24 9L36 21"/>',
+ left:'<path d="M35 41V28Q35 19 26 19H11M19 10L10 19L19 28"/>',
+ right:'<path d="M13 41V28Q13 19 22 19H37M29 10L38 19L29 28"/>',
+ stairs:'<path d="M7 40H17V30H27V20H37V10M30 8L38 10L40 18"/>',
+ arrive:'<path d="M13 42V7M13 9H37L30 17L37 25H13"/>'
+};
+const icon=k=>`<svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+
+function toast(t,ms=4500){const e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',ms)}
+
+fetch('data/graph.json').then(r=>r.json()).then(g=>{
+ G=g;g.nodes.forEach(n=>N[n.id]=n);
+ places=g.nodes.filter(n=>!['passage','stairs','connector'].includes(n.type)).map(n=>({id:n.id,name:n.name,sub:flab(n.floor),hay:(n.name+' '+flab(n.floor)).toLowerCase()}))
+  .sort((a,b)=>a.name.localeCompare(b.name));
+ $('blocks').innerHTML=[...new Set(g.floors.map(f=>f.block))].map(b=>`<button data-b="${b}" aria-label="${b} Block">${b}</button>`).join('');
+ const q=new URLSearchParams(location.search);
+ setFloor(g.floors.find(f=>f.block==='C')?.id||g.floors[0].id);
+ if(q.get('from')&&N[q.get('from')])from=q.get('from');
+ if(q.get('to')&&N[q.get('to')])to=q.get('to');
+ fields();if(from&&to)showRoute();
+});
+
+function fit(){const f=fl(cur),cw=svg.clientWidth||360,ch=svg.clientHeight||640;const w=Math.min(Math.max(f.w,f.h*cw/ch),Math.max(f.h*cw/ch,900));vb=[f.w/2-w/2,f.h/2-w*ch/cw/2,w,w*ch/cw]}
+function setFloor(id,keepView){
+ cur=id;const f=fl(id);img.setAttribute('href',f.image);img.setAttribute('width',f.w);img.setAttribute('height',f.h);
+ if(!keepView)fit();
+ const blk=f.block;
+ $('floors').innerHTML=G.floors.filter(x=>x.block===blk).map(x=>`<button data-f="${x.id}" class="${x.id===id?'on':''}" aria-label="${x.label}">${FS[x.id.split('_')[1]]||x.label}</button>`).join('');
+ document.querySelectorAll('#blocks button').forEach(b=>b.classList.toggle('on',b.dataset.b===blk));
+ render();
+}
+$('blocks').onclick=e=>{const b=e.target.dataset.b;if(b){setFloor(G.floors.find(f=>f.block===b).id);userMoved()}};
+$('floors').onclick=e=>{if(e.target.dataset.f){setFloor(e.target.dataset.f);userMoved()}};
+const userMoved=()=>{if(L.on){L.follow=false;$('recenter').style.display='grid'}};
+$('recenter').onclick=()=>{if(L.on&&L.pos){L.follow=true;$('recenter').style.display='none';if(L.pos.floor!==cur)setFloor(L.pos.floor);liveCenter(L.pos,true);render()}};
+
+function fields(){
+ const set=(id,t,ph)=>{const e=$(id);e.textContent=t||ph;e.classList.toggle('ph',!t)};
+ set('fromTxt',from&&N[from].name,'Start: where are you?');
+ set('toTxt',to&&N[to].name,'Destination');
+}
+$('fromBtn').onclick=()=>openSearch('from');
+$('toBtn').onclick=()=>openSearch('to');
+$('swap').onclick=()=>{[from,to]=[to,from];fields();if(from&&to)showRoute()};
+
+/* search */
+function results(q){
+ const w=q.toLowerCase().split(/\s+/).filter(Boolean);
+ if(!w.length)return[];
+ return places.filter(p=>w.every(x=>p.hay.includes(x))).sort((a,b)=>(b.hay.startsWith(w[0])-a.hay.startsWith(w[0]))||a.name.localeCompare(b.name)).slice(0,60);
+}
+function drawResults(){
+ const q=$('q').value,r=results(q);
+ $('res').innerHTML=r.length?r.map(p=>`<button data-id="${p.id}"><b>${p.name}</b><small>${p.sub}</small></button>`).join(''):`<div class="empty">${q.trim()?'No place matches "'+q.replace(/</g,'&lt;')+'". Try part of the room number or name.':'Type a room number, name or place.'}</div>`;
+}
+function openSearch(which,cb){
+ searchCb=cb||(id=>{if(which==='from')from=id;else to=id;fields();if(from&&to)showRoute();else if(which==='from'&&!to)toast('Now choose a destination.')});
+ $('search').style.display='flex';$('q').value='';
+ $('q').placeholder=which==='to'?'Where do you want to go?':'Where are you now?';
+ $('chips').innerHTML=which==='to'?'<button id="nearT">Nearest toilet</button>':'';
+ if(which==='to'&&!from)$('nearT').disabled=true;
+ drawResults();setTimeout(()=>$('q').focus(),50);
+}
+function closeSearch(){$('search').style.display='none';$('q').blur()}
+$('q').oninput=drawResults;
+$('sback').onclick=closeSearch;
+$('res').onclick=e=>{const b=e.target.closest('button');if(!b)return;const cb=searchCb;closeSearch();cb(b.dataset.id)};
+$('chips').onclick=e=>{
+ if(e.target.id!=='nearT'||!from)return;
+ const d=dist(from);let best=null;
+ G.nodes.filter(n=>n.type==='toilet'&&d[n.id]<1e11).forEach(n=>{if(!best||d[n.id]<d[best])best=n.id});
+ if(!best){toast('No toilet is connected to your start yet.');return}
+ closeSearch();to=best;fields();showRoute();
+};
+
+/* routing */
+function graph(){
+ const adj={};G.nodes.forEach(n=>adj[n.id]=[]);
+ G.edges.forEach((e,i)=>{const A=N[e.a],B=N[e.b],w=e.w??Math.hypot(A.x-B.x,A.y-B.y)*(fl(A.floor).scale||1);adj[e.a].push([e.b,w,i]);adj[e.b].push([e.a,w,i])});
+ return adj;
+}
+function dijkstra(a,b){
+ const adj=graph(),d={},pv={},q=new Set(Object.keys(adj));
+ q.forEach(k=>d[k]=1e12);d[a]=0;
+ while(q.size){let u=null;q.forEach(k=>{if(u===null||d[k]<d[u])u=k});q.delete(u);if(u===b||d[u]>=1e12)break;adj[u].forEach(x=>{if(d[u]+x[1]<d[x[0]]){d[x[0]]=d[u]+x[1];pv[x[0]]=[u,x[2]]}})}
+ return{d,pv};
+}
+const dist=a=>dijkstra(a,null).d;
+function findRoute(a,b){
+ const{d,pv}=dijkstra(a,b);if(d[b]>=1e12)return null;
+ const nodes=[b],edges=[];let c=b;while(c!==a){const p=pv[c];edges.push(p[1]);c=p[0];nodes.unshift(c)}
+ return{nodes,edges:edges.reverse(),len:d[b]};
+}
+
+function buildPlan(){
+ const ids=route.nodes,segs=[];let cum=0;
+ for(let k=1;k<ids.length;k++){
+  const a=N[ids[k-1]],b=N[ids[k]],e=G.edges[route.edges[k-1]],fa=fl(a.floor),fb=fl(b.floor);
+  const len=Math.hypot(a.x-b.x,a.y-b.y);
+  const kind=a.floor===b.floor?'walk':(fa.block===fb.block?'stairs':'link');
+  const steps=kind==='stairs'?0:(e.w??len*(fa.scale||1));
+  const ang=kind==='walk'&&steps>0.5&&len>3?nrm(Math.atan2(b.x-a.x,-(b.y-a.y))/rad):null;
+  segs.push({a,b,kind,steps,start:cum,ang,to:fb,from:fa,sw:kind==='stairs'?(e.w??26):0});
+  cum+=steps;
+ }
+ const corners=[],events=[];let pv=null;
+ segs.forEach(g=>{
+  if(g.kind==='stairs')events.push({type:'stairs',pos:g.start,seg:g});
+  if(g.kind==='link')events.push({type:'link',pos:g.start,seg:g});
+  if(g.kind!=='walk'){pv=null;return}
+  if(g.ang===null)return;
+  if(pv&&Math.abs(ad(g.ang,pv.ang))>35){const c={type:'turn',pos:g.start,turn:ad(g.ang,pv.ang),out:g.ang,node:g.a};corners.push(c);events.push(c)}
+  pv=g;
+ });
+ events.push({type:'end',pos:cum});
+ events.sort((a,b)=>a.pos-b.pos);
+ P={segs,corners,events,total:cum};
+}
+
+function showRoute(){
+ if(!from||!to)return;
+ if(from===to){toast('Choose two different places.');return}
+ const r=findRoute(from,to);
+ if(!r){route=null;P=null;app.dataset.mode='browse';render();toast('No walkable route between these two places yet.');return}
+ route=r;buildPlan();
+ const est=r.edges.some(i=>G.edges[i].est)||r.nodes.some(i=>fl(N[i].floor).est);
+ $('total').innerHTML=(est?'About ':'')+Math.round(r.len)+'<small>steps</small>';
+ $('est').textContent=est?'Approximate. Only C Block is measured so far.':'';
+ $('steps').innerHTML=routeSteps().map((x,i)=>`<div class="st" data-f="${x.f}"><span class="n">${i+1}</span><span>${x.t}<br><small>${flab(x.f)}</small></span></div>`).join('');
+ $('steps').style.display='none';$('dirs').textContent='Show directions';
+ app.dataset.mode='preview';
+ setFloor(N[from].floor);
+ fitRoute();render();
+}
+function routeSteps(){
+ const s=route.nodes,out=[{t:'Start at '+N[s[0]].name,f:N[s[0]].floor}];
+ for(let k=1;k<s.length;k++){const a=N[s[k-1]],b=N[s[k]];if(a.floor!==b.floor){
+  const fa=fl(a.floor),fb=fl(b.floor);
+  out.push({t:fa.block!==fb.block?'Go from '+fa.block+' Block to '+fb.block+' Block':'Take the stairs to the '+fb.label.toLowerCase(),f:a.floor})}}
+ out.push({t:'Arrive at '+N[s[s.length-1]].name,f:N[s[s.length-1]].floor});
+ return out;
+}
+function fitRoute(){
+ const pts=route.nodes.map(i=>N[i]).filter(n=>n.floor===cur);if(!pts.length)return;
+ const x0=Math.min(...pts.map(p=>p.x)),x1=Math.max(...pts.map(p=>p.x)),y0=Math.min(...pts.map(p=>p.y)),y1=Math.max(...pts.map(p=>p.y));
+ const cw=svg.clientWidth||360,ch=svg.clientHeight||640,pad=120;
+ const w=Math.max(x1-x0+pad*2,(y1-y0+pad*2)*cw/ch,300),h=w*ch/cw;
+ vb=[(x0+x1)/2-w/2,(y0+y1)/2-h/2-h*0.04,w,h];
+}
+$('dirs').onclick=()=>{const o=$('steps').style.display==='none';$('steps').style.display=o?'block':'none';$('dirs').textContent=o?'Hide directions':'Show directions'};
+$('steps').onclick=e=>{const s=e.target.closest('.st');if(s){setFloor(s.dataset.f);fitRoute();render()}};
+$('clr').onclick=clearRoute;
+function clearRoute(){if(L.on)liveStop();route=null;P=null;app.dataset.mode='browse';from=null;to=null;fields();render()}
+
+/* map drawing */
+function render(){
+ if(!G)return;
+ const cw=svg.clientWidth||360,ch=svg.clientHeight||640;
+ const cy=vb[1]+vb[3]/2;vb[3]=vb[2]*ch/cw;vb[1]=cy-vb[3]/2;
+ svg.setAttribute('viewBox',vb.join(' '));
+ const R=vb[2]/cw*9;let h='';
+ if(P){
+  const s=L.on?L.s:-1;
+  let casing='',behind='',ahead='',chev='',marks='';
+  P.segs.forEach(g=>{
+   if(g.kind!=='walk'||g.a.floor!==cur)return;
+   const t=!L.on?0:(g.steps>0?Math.max(0,Math.min(1,(s-g.start)/g.steps)):(s>g.start?1:0));
+   const px=g.a.x+(g.b.x-g.a.x)*t,py=g.a.y+(g.b.y-g.a.y)*t;
+   casing+=`<line x1="${g.a.x}" y1="${g.a.y}" x2="${g.b.x}" y2="${g.b.y}" stroke="#fff" stroke-width="${R*1.05}" stroke-linecap="round"/>`;
+   if(t>0)behind+=`<line x1="${g.a.x}" y1="${g.a.y}" x2="${px}" y2="${py}" stroke="#9aa5b8" stroke-width="${R*.55}" stroke-linecap="round"/>`;
+   if(t<1){
+    ahead+=`<line x1="${px}" y1="${py}" x2="${g.b.x}" y2="${g.b.y}" stroke="#e11d48" stroke-width="${R*.55}" stroke-linecap="round"/>`;
+    const len=Math.hypot(g.b.x-px,g.b.y-py),gap=R*4.5;
+    if(len>gap*.8){const an=Math.atan2(g.b.x-px,-(g.b.y-py))/rad,n=Math.max(1,Math.floor(len/gap));
+     for(let i=0;i<n;i++){const u=(i+.5)/n,x=px+(g.b.x-px)*u,y=py+(g.b.y-py)*u;
+      chev+=`<path transform="translate(${x} ${y}) rotate(${an}) scale(${R*.2})" d="M-3 2.2L0 -1.6L3 2.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`}}
+   }
+  });
+  P.corners.forEach(c=>{if(c.node.floor!==cur)return;
+   marks+=`<g transform="translate(${c.node.x} ${c.node.y})"><circle r="${R*1.25}" fill="#0f1b33" stroke="#fff" stroke-width="${R*.25}"/><path transform="rotate(${c.out}) scale(${R*.1})" d="M0 -7L6 3L0 0.5L-6 3Z" fill="#fff"/></g>`});
+  P.segs.forEach(g=>{
+   if(g.kind==='walk'||g.a.floor!==cur)return;
+   const lb=g.kind==='link'?'To '+g.to.block+' Block':'Stairs to '+g.to.label.toLowerCase();
+   marks+=`<circle cx="${g.a.x}" cy="${g.a.y}" r="${R*1.1}" fill="#534AB7" stroke="#fff" stroke-width="${R*.25}"/><text x="${g.a.x+R*1.5}" y="${g.a.y+R*.5}" font-size="${R*1.5}" font-weight="800" fill="#2d2470" stroke="#fff" stroke-width="${R*.5}" paint-order="stroke">${lb}</text>`});
+  const s0=N[route.nodes[0]],t0=N[route.nodes[route.nodes.length-1]];
+  if(s0.floor===cur)marks+=`<circle cx="${s0.x}" cy="${s0.y}" r="${R*1.1}" fill="#0b7a5a" stroke="#fff" stroke-width="${R*.3}"/><text x="${s0.x+R*1.5}" y="${s0.y+R*.5}" font-size="${R*1.6}" font-weight="800" fill="#0b4d3d" stroke="#fff" stroke-width="${R*.5}" paint-order="stroke">Start</text>`;
+  if(t0.floor===cur)marks+=`<path transform="translate(${t0.x} ${t0.y}) scale(${R*.13})" d="M0 0C-9 -12 -12 -16 -12 -22A12 12 0 1 1 12 -22C12 -16 9 -12 0 0Z" fill="#e11d48" stroke="#fff" stroke-width="2.4"/><circle cx="${t0.x}" cy="${t0.y-R*2.9}" r="${R*.55}" fill="#fff"/><text x="${t0.x+R*1.8}" y="${t0.y-R*1.6}" font-size="${R*1.6}" font-weight="800" fill="#9f1239" stroke="#fff" stroke-width="${R*.5}" paint-order="stroke">End</text>`;
+  h+=casing+behind+ahead+chev+marks;
+ }
+ if(L.on&&L.pos&&L.pos.floor===cur){
+  const p=L.pos,seg=segAt(L.s);let a=null;
+  if(L.cal&&L.hs!==null)a=nrm(L.hs-L.off);else if(seg)a=seg.ang;
+  h+=`<circle cx="${p.x}" cy="${p.y}" r="${R*2.6}" fill="#2563eb" opacity=".16"/>`;
+  h+=a===null?`<circle cx="${p.x}" cy="${p.y}" r="${R*1.1}" fill="#2563eb" stroke="#fff" stroke-width="${R*.35}"/>`
+   :`<g transform="translate(${p.x} ${p.y}) rotate(${a}) scale(${R*.2})"><path d="M0 -9L6.5 7.5L0 4L-6.5 7.5Z" fill="#2563eb" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></g>`;
+ }
+ ov.innerHTML=h;
+}
+
+/* gestures */
+const ptr=new Map();let g0=null;
+const snap=()=>{const a=[...ptr.values()];const r=svg.getBoundingClientRect();return{vb:[...vb],a:a.map(p=>({...p})),d:a.length>1?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0,m:a.length>1?{x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2}:null,r}};
+svg.addEventListener('pointerdown',e=>{svg.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});g0=snap()});
+svg.addEventListener('pointermove',e=>{
+ if(!ptr.has(e.pointerId))return;
+ ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ const a=[...ptr.values()],k0=g0.vb[2]/g0.r.width;
+ if(a.length===1&&g0.a.length===1){
+  const dx=a[0].x-g0.a[0].x,dy=a[0].y-g0.a[0].y;
+  if(Math.hypot(dx,dy)>3)userMoved();
+  vb[0]=g0.vb[0]-dx*k0;vb[1]=g0.vb[1]-dy*k0;render();
+ }else if(a.length>=2&&g0.a.length>=2){
+  const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),m={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2},f=fl(cur);
+  const w=Math.max(f.w/14,Math.min(f.w*1.6,g0.vb[2]*g0.d/d)),k1=w/g0.r.width;
+  const px=g0.vb[0]+(g0.m.x-g0.r.left)*k0,py=g0.vb[1]+(g0.m.y-g0.r.top)*k0;
+  vb=[px-(m.x-g0.r.left)*k1,py-(m.y-g0.r.top)*k1,w,w*g0.r.height/g0.r.width];userMoved();render();
+ }
+});
+const up=e=>{ptr.delete(e.pointerId);g0=ptr.size?snap():null};
+svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect(),k=vb[2]/r.width,px=vb[0]+(e.clientX-r.left)*k,py=vb[1]+(e.clientY-r.top)*k,z=e.deltaY>0?1.15:1/1.15,w=vb[2]*z,k1=w/r.width;vb=[px-(e.clientX-r.left)*k1,py-(e.clientY-r.top)*k1,w,w*r.height/r.width];render()},{passive:false});
+window.addEventListener('resize',()=>{if(G)render()});
+
+/* live mode */
+function compass(alpha,beta,gamma){
+ const a=alpha*rad,b=beta*rad,g=gamma*rad,cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+ const rA=-cA*sG-sA*sB*cG,rB=-sA*sG+cA*sB*cG;let h=Math.atan(rA/rB);
+ if(rB<0)h+=Math.PI;else if(rA<0)h+=2*Math.PI;return nrm(h/rad);
+}
+const segAt=s=>P.segs.find(g=>g.ang!==null&&s>=g.start-1e-6&&s<=g.start+g.steps+1e-6);
+function liveCap(){const g=P.segs.find(g=>g.kind==='stairs'&&!L.cleared.has(g));return g?g.start:P.total}
+function livePos(){
+ const first=P.segs[0].a;
+ if(L.s<1e-6)return{floor:first.floor,x:first.x,y:first.y};
+ let node=first;
+ for(const g of P.segs){
+  if(g.kind==='stairs'){if(L.cleared.has(g)){node=g.b;continue}break}
+  if(g.steps<=0){if(L.s>g.start+1e-6||L.s>=P.total-1e-6)node=g.b;continue}
+  if(L.s>=g.start+g.steps-1e-6){node=g.b;continue}
+  const t=(L.s-g.start)/g.steps;
+  if(g.kind==='walk')return{floor:g.a.floor,x:g.a.x+(g.b.x-g.a.x)*t,y:g.a.y+(g.b.y-g.a.y)*t};
+  const n=t<.5?g.a:g.b;return{floor:n.floor,x:n.x,y:n.y};
+ }
+ return{floor:node.floor,x:node.x,y:node.y};
+}
+function liveLog(ev,t){if(L.log.length>60000)return;L.log.push([Math.round(t-L.t0),...L.raw,L.gy.toFixed(0),...L.ori,L.hs===null?'':L.hs.toFixed(1),(L.lp-L.g).toFixed(2),ev])}
+
+async function liveStart(){
+ if(!route)return;
+ if(!isSecureContext){toast('Live mode needs a secure (https) page.');return}
+ try{for(const E of [window.DeviceMotionEvent,window.DeviceOrientationEvent]){if(E&&E.requestPermission){const r=await E.requestPermission();if(r!=='granted'){toast('Allow motion and orientation access to use live mode.');return}}}}
+ catch(e){toast('Could not get sensor access: '+e.message);return}
+ L={on:true,s:0,steps:0,off:0,cal:false,hist:[],hs:null,href:null,hprev:null,turn:false,still:0,cand:[],rhythm:false,lastStep:0,lastPeak:0,above:false,lp:9.8,g:9.8,tPrev:0,gy:0,raw:[0,0,0],ori:['','',''],log:[],t0:performance.now(),bad:0,mute:0,lastEv:0,th:+$('lth').value,cleared:new Set(),follow:true,buzz:null};
+ window.addEventListener('devicemotion',onMotion);
+ if('ondeviceorientationabsolute' in window)window.addEventListener('deviceorientationabsolute',onOri);else window.addEventListener('deviceorientation',onOri);
+ L.timer=setInterval(liveTick,300);
+ try{L.wake=await navigator.wakeLock.request('screen')}catch(e){}
+ app.dataset.mode='live';$('recenter').style.display='none';
+ L.pos=livePos();setFloor(L.pos.floor);liveCenter(L.pos,true);liveHud();render();
+ setTimeout(()=>{if(!L.on)return;if(!L.lastEv)toast('No motion data. In Chrome, open Site settings and allow Motion sensors.',8000);else if(L.hs===null)toast('No compass data. Steps still work, but turns are not checked.',8000)},3000);
+}
+function liveStop(){
+ if(!L.on)return;
+ L.on=false;clearInterval(L.timer);
+ window.removeEventListener('devicemotion',onMotion);window.removeEventListener('deviceorientationabsolute',onOri);window.removeEventListener('deviceorientation',onOri);
+ try{L.wake&&L.wake.release()}catch(e){}
+ $('off').style.display='none';$('tools').style.display='none';$('recenter').style.display='none';
+ if(route)app.dataset.mode='preview';
+ render();
+}
+function onMotion(ev){
+ const a=ev.accelerationIncludingGravity,r=ev.rotationRate;
+ if(!L.on||!a||a.x==null)return;
+ const t=performance.now(),dt=L.tPrev?Math.min((t-L.tPrev)/1000,0.2):0.016;
+ L.tPrev=t;L.lastEv=t;
+ const m=Math.hypot(a.x,a.y,a.z);
+ L.lp+=(1-Math.exp(-dt/0.04))*(m-L.lp);L.g+=(1-Math.exp(-dt/2))*(m-L.g);
+ L.gy=r?Math.hypot(r.alpha||0,r.beta||0,r.gamma||0):0;
+ L.raw=[a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)];
+ const dev=L.lp-L.g;
+ if(!L.lastRow||t-L.lastRow>30){L.lastRow=t;liveLog('',t)}
+ if(dev>L.th&&!L.above){L.above=true;if(t-L.lastPeak>300)candidate(t)}
+ if(dev<L.th*0.4)L.above=false;
+}
+function candidate(t){
+ L.lastPeak=t;
+ if(L.gy>200){liveLog('twist-ignored',t);return}
+ if(L.cand.length&&t-L.cand[L.cand.length-1]>1200)L.cand.length=0;
+ L.cand.push(t);
+ if(L.rhythm){L.lastStep=t;onStep();return}
+ if(L.cand.length>=3){L.rhythm=true;L.lastStep=t;for(let i=0;i<L.cand.length;i++)onStep();liveLog('rhythm-start',t)}
+}
+function onOri(ev){
+ if(!L.on)return;
+ let h=null;
+ if(ev.webkitCompassHeading!=null)h=ev.webkitCompassHeading;
+ else if(ev.alpha!=null&&(ev.absolute||ev.type==='deviceorientationabsolute'))h=compass(ev.alpha,ev.beta,ev.gamma);
+ if(h===null)return;
+ L.ori=[(ev.alpha??0).toFixed(0),(ev.beta??0).toFixed(0),(ev.gamma??0).toFixed(0)];
+ L.hs=L.hs===null?h:nrm(L.hs+0.15*ad(h,L.hs));
+}
+function onStep(){
+ const cap=liveCap();
+ L.steps++;L.s=Math.min(L.s+1,cap);
+ if(L.hs!==null){
+  const seg=segAt(L.s),near=P.corners.some(c=>Math.abs(c.pos-L.s)<6);
+  if(!L.cal){
+   L.hist.push(L.hs);if(L.hist.length>5)L.hist.shift();
+   if(L.hist.length===5&&seg&&L.hist.every(x=>Math.abs(ad(x,L.hist[4]))<25)){L.off=ad(L.hist[4],seg.ang);L.cal=true;liveLog('calibrated',performance.now())}
+  }else if(seg){
+   const d=ad(nrm(L.hs-L.off),seg.ang);
+   if(Math.abs(d)<40){L.off+=0.05*d;L.bad=0}else if(!near&&!L.turn)L.bad++;
+   if(L.bad>=5&&!L.mute)showOff();
+  }
+  if(L.mute>0)L.mute--;
+ }
+ liveUpdate();
+}
+function snapTurn(d){
+ let best=null;
+ P.corners.forEach(c=>{const dd=Math.abs(c.pos-L.s);if(dd<=8&&Math.sign(c.turn)===Math.sign(d)&&Math.abs(c.turn-d)<60&&(!best||dd<best.dd))best={c,dd}});
+ if(!best){liveLog('turn-no-corner '+d.toFixed(0),performance.now());return}
+ L.s=Math.min(L.s+0.7*(best.c.pos-L.s),liveCap());
+ L.off+=0.3*ad(nrm(L.hs-L.off),best.c.out);L.bad=0;
+ liveLog('snap '+best.c.pos.toFixed(1),performance.now());
+}
+function liveTick(){
+ if(!L.on)return;
+ const now=performance.now();
+ if(L.rhythm&&now-L.lastStep>1500){L.rhythm=false;L.cand.length=0}
+ if(L.hs!==null){
+  if(L.href===null){L.href=L.hs;L.hprev=L.hs}
+  const stable=Math.abs(ad(L.hs,L.hprev))<5;L.hprev=L.hs;
+  if(!L.turn){if(Math.abs(ad(L.hs,L.href))>25){L.turn=true;L.tStart=L.href;L.still=0}else if(stable)L.href=L.hs}
+  else{
+   L.still=stable?L.still+1:0;
+   if(L.still>=2){const d=ad(L.hs,L.tStart);L.turn=false;L.href=L.hs;
+    if(Math.abs(d)>50&&now-L.lastStep<3000)snapTurn(d);else liveLog('turn-ignored '+d.toFixed(0),now);
+    liveUpdate()}
+  }
+ }
+ liveHud();
+}
+function liveCenter(p,zoom){
+ const f=fl(p.floor),cw=svg.clientWidth||360,ch=svg.clientHeight||640;
+ const w=zoom?Math.max(f.w/10,Math.min(f.w/2,45/(f.scale||0.1))):vb[2],h=w*ch/cw;
+ vb=[p.x-w/2,p.y-h*0.58,w,h];
+}
+function liveUpdate(){
+ const p=livePos(),prev=L.pos&&L.pos.floor;
+ L.pos=p;
+ if(p.floor!==cur&&L.follow){setFloor(p.floor);liveCenter(p,true)}
+ else if(L.follow&&(p.x<vb[0]+vb[2]*.2||p.x>vb[0]+vb[2]*.8||p.y<vb[1]+vb[3]*.3||p.y>vb[1]+vb[3]*.8))liveCenter(p,false);
+ if(prev&&prev!==p.floor&&fl(prev).block!==fl(p.floor).block){L.cal=false;L.hist=[]}
+ render();liveHud();
+}
+function liveHud(){
+ if(!L.on)return;
+ const s=L.s,cap=liveCap(),held=s>=cap-1e-6&&cap<P.total;
+ const ev=P.events.find(e=>e.type==='stairs'?!L.cleared.has(e.seg):e.type==='link'?s<e.seg.start+e.seg.steps-.5:e.pos>=s-.5)||P.events[P.events.length-1];
+ const d=Math.max(0,Math.round(ev.pos-s)),left=Math.max(0,Math.round(P.total-s+P.segs.filter(g=>g.kind==='stairs'&&!L.cleared.has(g)).reduce((a,g)=>a+g.sw,0)));
+ let ic='straight',h='',sub='';
+ const nxt=e=>e.type==='turn'?'turn '+(e.turn>0?'right':'left'):e.type==='stairs'?'take the stairs':e.type==='link'?'cross to '+e.seg.to.block+' Block':'arrive';
+ if(s>=P.total-.5){ic='arrive';h='You have arrived';sub=N[to].name}
+ else if(ev.type==='stairs'&&held){ic='stairs';h='Take the stairs';sub='Go to the '+ev.seg.to.label.toLowerCase()+', then tap the button.'}
+ else if(ev.type==='link'&&s>=ev.seg.start-.5){h='Cross to '+ev.seg.to.block+' Block';sub=Math.max(0,Math.round(ev.seg.start+ev.seg.steps-s))+' steps'}
+ else if(ev.type==='turn'&&d<=10){ic=ev.turn>0?'right':'left';h='Turn '+(ev.turn>0?'right':'left');sub=d<=1?'now':'in '+d+' steps'}
+ else if(ev.type==='stairs'&&d<=10){ic='stairs';h='Stairs ahead';sub='in '+d+' steps'}
+ else if(ev.type==='link'&&d<=10){h='Cross to '+ev.seg.to.block+' Block';sub='in '+d+' steps'}
+ else{h='Go straight';sub=ev.type==='end'?d+' steps to go':d+' steps, then '+nxt(ev)}
+ const key=ev.pos.toFixed(1)+ev.type;
+ if(ev.type!=='end'&&d<=3&&L.buzz!==key){L.buzz=key;try{navigator.vibrate&&navigator.vibrate(120)}catch(e){}}
+ $('icon').innerHTML=icon(ic);$('nh').textContent=h;$('ns').textContent=sub;
+ $('nr').textContent=left+' steps to destination';$('nq').textContent=L.rhythm?'Walking':'Standing';
+ const b=$('stairs');
+ if(held){b.style.display='block';b.textContent="I'm on the "+ev.seg.to.label.toLowerCase()}else b.style.display='none';
+ $('stats').textContent='Steps counted '+L.steps+'. Progress '+Math.round(s)+' of '+Math.round(P.total)+'. Heading '+(L.hs===null?'no compass':Math.round(L.hs)+' degrees (map '+(L.cal?Math.round(nrm(L.hs-L.off)):'not set')+')')+'. Signal '+(L.lp-L.g).toFixed(1)+'.';
+}
+function showOff(){$('off').style.display='block';L.mute=999}
+$('offOk').onclick=()=>{$('off').style.display='none';L.bad=0;L.mute=20};
+$('offFix').onclick=()=>{$('off').style.display='none';askWhere()};
+$('where').onclick=askWhere;
+function askWhere(){openSearch('now',id=>reroute(id))}
+function reroute(id){
+ if(id===to){toast('That is your destination.');return}
+ liveLog('corrected-to '+id+' from s='+L.s.toFixed(1),performance.now());
+ const r=findRoute(id,to);if(!r){toast('No route from there.');return}
+ from=id;route=r;buildPlan();fields();
+ L.s=0;L.bad=0;L.mute=20;L.hist=[];L.cleared=new Set();L.buzz=null;L.follow=true;
+ L.pos=livePos();setFloor(L.pos.floor);liveCenter(L.pos,true);liveHud();render();
+}
+$('go').onclick=liveStart;
+$('stop').onclick=()=>{if(L.on&&P&&L.s>=P.total-.5){clearRoute()}else liveStop()};
+$('stairs').onclick=()=>{const g=P.segs.find(g=>g.kind==='stairs'&&!L.cleared.has(g));if(g){L.cleared.add(g);liveLog('stairs-done',performance.now());liveUpdate()}};
+$('toolsBtn').onclick=()=>$('tools').style.display='block';
+$('tclose').onclick=()=>$('tools').style.display='none';
+$('lstep').onclick=()=>{if(L.on){L.lastStep=performance.now();onStep()}};
+$('lset').onclick=()=>{if(!L.on||L.hs===null){toast('No compass data yet.');return}const seg=segAt(Math.max(L.s,.01))||P.segs.find(g=>g.ang!==null);if(seg){L.off=ad(L.hs,seg.ang);L.cal=true;L.bad=0;liveUpdate();toast('Direction set along the corridor.')}};
+$('lth').oninput=e=>{if(L.on)L.th=+e.target.value;$('lthv').textContent=e.target.value};
+$('llog').onclick=()=>{
+ if(!L.log||!L.log.length){toast('Nothing recorded yet.');return}
+ const rows=[['t_ms','ax','ay','az','gyro','alpha','beta','gamma','heading','signal','event'],...L.log];
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));a.download='livelog.csv';a.click();
+};
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&L.on&&e.target.tagName!=='INPUT'){e.preventDefault();$('lstep').click()}});
+setInterval(()=>{if(L.on&&P&&L.s>=P.total-.5)$('stop').textContent='Done';else $('stop').textContent='Stop'},500);
+</script>
+</body>
+</html>
